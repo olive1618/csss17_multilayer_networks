@@ -1,6 +1,7 @@
+"""Check which plants and pollinators have interactions at each site"""
 import os
 import pandas as pd
-import pymnet
+import matplotlib.pyplot as plt
 
 
 # Pollinators are rows and plants are columns
@@ -41,5 +42,22 @@ for k, v in pollinators.iteritems():
     for site in v:
         poll_df.loc[site, k] = 1
 
-plant_df.to_csv("plants.csv")
-poll_df.to_csv("polls.csv")
+plant_sum = plant_df.sum(axis=0)
+pollntr_sum = poll_df.sum(axis=0)
+
+fig = plt.figure()
+ax = plant_sum.plot.hist()
+ax = fig.add_subplot(ax)
+plt.title("Histogram of # of Sites that Recorded Plant Species\nMax is 14")
+fig.savefig("viz/plant_histo.png")
+plt.show()
+
+fig = plt.figure()
+ax = pollntr_sum.plot.hist()
+ax = fig.add_subplot(ax)
+plt.title("Histogram of # of Sites that Recorded Pollinator Species\nMax is 14")
+plt.savefig("viz/pollinator_histo.png")
+plt.show()
+
+# plant_df.to_csv("plants.csv")
+# poll_df.to_csv("polls.csv")
