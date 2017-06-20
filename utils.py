@@ -1,5 +1,6 @@
 import os
 import string
+
 import pandas as pd
 
 
@@ -40,4 +41,5 @@ def create_node_names(dir_loc):
     return pollinator_key, plant_key
 
 
-pollinator_lookup, plant_lookup = create_node_names("data")
+if __name__ == "__main__":
+    pollinator_lookup, plant_lookup = create_node_names("data")
