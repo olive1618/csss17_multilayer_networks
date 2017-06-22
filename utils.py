@@ -25,8 +25,9 @@ def create_node_names(dir_loc):
                     name = temp[0]
                 if len(temp) == 3:
                     name += '_' + temp[2]
+                name = ''.join([i if ord(i) < 128 else ' ' for i in name])
                 pollinator_key[poll] = name
-        
+
         for plnt in df.columns:
             if plnt not in plant_key:
                 temp = plnt.translate(None, string.punctuation).split(' ')
@@ -36,10 +37,12 @@ def create_node_names(dir_loc):
                     name = temp[0]
                 if len(temp) == 3:
                     name += '_' + temp[2]
+                name = ''.join([i if ord(i) < 128 else ' ' for i in name])
                 plant_key[plnt] = name
-    
+
     return pollinator_key, plant_key
 
 
 if __name__ == "__main__":
     pollinator_lookup, plant_lookup = create_node_names("data")
+
