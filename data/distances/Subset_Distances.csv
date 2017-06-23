@@ -1,0 +1,7 @@
+From,To,Distance
+WesternSahara_1,GranCanaria_1,244126.1002
+WesternSahara_1,TenerifeSouth_1,339317.6653
+GranCanaria_1,WesternSahara_1,244126.1002
+GranCanaria_1,TenerifeSouth_1,116498.0882
+TenerifeSouth_1,WesternSahara_1,339317.6653
+TenerifeSouth_1,GranCanaria_1,116498.0882

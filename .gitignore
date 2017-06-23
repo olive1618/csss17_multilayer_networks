@@ -107,6 +107,3 @@ ENV/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-
-# Ignore csv files
-*csv
