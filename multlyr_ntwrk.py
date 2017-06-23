@@ -44,7 +44,7 @@ def build_site_network_layers():
 
     return site_lookup_tbl
 
-
+#
 def add_inter_layer_edges():
     df = pd.read_csv(DIST_DIR_FILE, header=0)
     for row in df.itertuples():
@@ -69,12 +69,11 @@ def add_inter_layer_edges():
             if MNET[node, from_site_num].deg() > 0 and MNET[node, to_site_num].deg() > 0:
                 MNET[node, node, from_site_num, to_site_num] = row[3]
 
-
-
+#
 if __name__ == "__main__":
     # Run function in utils.py to create plant/pollinator lookup tables for summary names
-    SITE_DIR_LOC = "subset"
-    POLLINATOR_LOOKUP, PLANT_LOOKUP = utils.create_node_names("data")
+    SITE_DIR_LOC = "data/sites"
+    POLLINATOR_LOOKUP, PLANT_LOOKUP = utils.create_node_names(SITE_DIR_LOC)
 
     # Initialize the multilayer network
     MNET = pymnet.MultilayerNetwork(aspects=1)
@@ -87,9 +86,19 @@ if __name__ == "__main__":
     print("Layers:", MNET.get_layers())
 
     # Add between layer edges. Weights are the distances in meters from the data set
-    DIST_DIR_FILE = "Distance_between_sites_Dryad.csv"
-    SUBSET_DIST_DIR_FILE = "Subset_Distances.csv"
+    DIST_DIR_FILE = "data/distances/Distance_between_sites_Dryad.csv"
+    SUBSET_DIST_DIR_FILE = "data/distances/Subset_Distances.csv"
     add_inter_layer_edges()
     print("\nBetween layer edges added")
 
-    fig = pymnet.draw(MNET, show=True, layershape="circle")
+    fig = pymnet.draw(MNET,
+                      show=True,
+                      figsize=(15, 8),
+                    #   layergap=1.1,
+                      camera_dist=50,
+                      autoscale=True,
+                      layout="circular",
+                      layershape="circle",
+                      alignedNodes=True,
+                      nodeLabelRule={},
+                      nodeSizeRule={"rule":"degree", "propscale":0.05})
