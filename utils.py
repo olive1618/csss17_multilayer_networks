@@ -120,8 +120,26 @@ def collaps_to_main_islands():
     base_df.to_csv('data/mainland_islands/Islands.csv')
 
 #
+def collapse_to_single_layer():
+    """Collapse all sites to a single file"""
+    base_df = pd.read_csv(os.path.join(SITE_DIR_LOC, "Site1_WesternSahara1.csv"),
+                           header=0, index_col=0)
+
+    collapsed_islands = ["Site1_WesternSahara1.csv"]
+    for file_name in os.listdir(SITE_DIR_LOC):
+        if file_name not in collapsed_islands:
+            collapsed_islands.append(file_name)
+            add_df = pd.read_csv(os.path.join(SITE_DIR_LOC, file_name),
+                                 header=0, index_col=0)
+            base_df = row_col_matching(add_df, base_df)
+
+    base_df.to_csv('data/all_sites/AllSites.csv')
+
+
+#
 if __name__ == "__main__":
     SITE_DIR_LOC = "data/sites"
     # pollinator_lookup, plant_lookup = create_node_names()
     # collapse_to_islands()
-    collaps_to_main_islands()
+    # collaps_to_main_islands()
+    collapse_to_single_layer()
