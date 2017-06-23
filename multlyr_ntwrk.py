@@ -39,9 +39,9 @@ def build_site_network_layers():
                 except:
                     print("Plant not found: ", col_name)
                     plant = col_name
-                
+
                 MNET[pollinator, plant, site_num, site_num] = df.loc[row_name, col_name]
-    
+
     return site_lookup_tbl
 
 
@@ -57,23 +57,24 @@ def add_inter_layer_edges():
         except:
             print("From site not found: ", from_site_name)
             break
-        
+
         try:
             to_site_num = SITE_LOOKUP[to_site_name]
         except:
             print("To site not found: ", to_site_name)
             break
-    
-        # TODO May need to check for node degree within layer first
+
+        # Add between layer edge if the node has edges within both layers
         for node in list(MNET):
-            MNET[node, node, from_site_num, to_site_num] = row[3]
+            if MNET[node, from_site_num].deg() > 0 and MNET[node, to_site_num].deg() > 0:
+                MNET[node, node, from_site_num, to_site_num] = row[3]
 
 
 
 if __name__ == "__main__":
     # Run function in utils.py to create plant/pollinator lookup tables for summary names
-    SITE_DIR_LOC = "data"
-    POLLINATOR_LOOKUP, PLANT_LOOKUP = utils.create_node_names(SITE_DIR_LOC)
+    SITE_DIR_LOC = "subset"
+    POLLINATOR_LOOKUP, PLANT_LOOKUP = utils.create_node_names("data")
 
     # Initialize the multilayer network
     MNET = pymnet.MultilayerNetwork(aspects=1)
@@ -84,9 +85,11 @@ if __name__ == "__main__":
     # Confirm all 14 network layers creates
     print("\nNetwork layers for each site added")
     print("Layers:", MNET.get_layers())
-    
+
     # Add between layer edges. Weights are the distances in meters from the data set
     DIST_DIR_FILE = "Distance_between_sites_Dryad.csv"
+    SUBSET_DIST_DIR_FILE = "Subset_Distances.csv"
     add_inter_layer_edges()
     print("\nBetween layer edges added")
 
+    fig = pymnet.draw(MNET, show=True, layershape="circle")
