@@ -53,9 +53,8 @@ def idx(i,A):
 	#return A[0].nodes().index(i)
 
 def read_graph(folder,adjacency_file,A):
-	assert( os.path.isfile(folder+adjacency_file) and os.access(folder+adjacency_file, os.R_OK))
-   	print "Adjacency file =",folder+adjacency_file
-   	infile=open(folder+adjacency_file,'r');
+	assert(os.path.isfile(os.path.join(folder, adjacency_file)) and os.access(os.path.join(folder, adjacency_file), os.R_OK))
+   	infile=open(os.path.join(folder, adjacency_file),'r');
    	nr=0
    	L=len(A)
    	for line in infile:
@@ -84,7 +83,7 @@ def print_graph_stat(A):
 def out_graph(folder,A):
 	L=len(A)
 	for a in range(L):
-		outfile=folder+"out_adjacency_"+str(a)+".dat";
+		outfile=os.path.join(folder, "out_adjacency_"+str(a)+".dat")
 		outf=open(outfile,'w')
 		print "Adjacency of layer ",a," output in: ",outfile
 		for e in A[a].edges():

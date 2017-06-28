@@ -1,6 +1,7 @@
 """
 Poisson Tensor factorization for Multi-layer networks.
 """
+import os
 import time
 import sys
 import numpy as np
@@ -241,16 +242,16 @@ class MultiTensor :
 		if(sorting==True):
 			node_list=np.sort( [int(i) for i in nodes] )
 			print "Sorting the membership vectors..."
-		infile1=self.folder+"u_K"+str(self.K)+self.end_file
-		infile3=self.folder+"w_K"+str(self.K)+self.end_file
+		infile1=os.path.join(self.folder, "u_K"+str(self.K)+self.end_file)
+		infile3=os.path.join(self.folder, "w_K"+str(self.K)+self.end_file)
 		in1=open(infile1,'w')				
 		in3=open(infile3,'w')
-		print >>in1,"# Max Likelihood= ",maxL," N_real=",self.N_real				
-		print >>in3,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+		print in1,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+		print in3,"# Max Likelihood= ",maxL," N_real=",self.N_real				
 		if(self.undirected==False):
-			infile2=self.folder+"v_K"+str(self.K)+self.end_file
+			infile2=os.path.join(self.folder, "v_K"+str(self.K)+self.end_file)
 			in2=open(infile2,'w')				
-			print >>in2,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+			print in2,"# Max Likelihood= ",maxL," N_real=",self.N_real				
 
 
 		# Output membership
@@ -297,8 +298,10 @@ class MultiTensor :
 		self._output_affinity_matrix()	# output on screen				 
 
 		print "Data saved in:";
-		print infile1;print infile3;
-		if(self.undirected==False):print infile2;
+		print infile1
+		print infile3
+		if(self.undirected==False):
+			print infile2
 
 
 	# ----------	----------	----------	----------	----------	
