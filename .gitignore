@@ -110,5 +110,4 @@ ENV/
 <<<<<<< HEAD
 
 # Ignore csv files
-*csv
 .DS_Store
