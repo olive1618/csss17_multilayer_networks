@@ -1,3 +1,4 @@
+"""Utility file of helper functions to process data or create lookup tables"""
 import os
 import re
 import string
@@ -125,7 +126,7 @@ def collaps_to_main_islands():
 def collapse_to_single_layer():
     """Collapse all sites to a single file"""
     base_df = pd.read_csv(os.path.join(SITE_DIR_LOC, "Site1_WesternSahara1.csv"),
-                           header=0, index_col=0)
+                          header=0, index_col=0)
 
     collapsed_islands = ["Site1_WesternSahara1.csv"]
     for file_name in os.listdir(SITE_DIR_LOC):
@@ -139,7 +140,7 @@ def collapse_to_single_layer():
 
 #
 def create_single_layer_adjacency():
-    """Create multilayer adjacency matrices for input to MultiTensor software.
+    """Create single adjacency matrices for eventual use in MultiTensor software.
     Pollinators are rows and plants are columns. Directed so node1 --> node2"""
     all_sites_df = pd.read_csv(ALL_SITES_FILE_LOC, header=0, index_col=0)
     all_plants = list(all_sites_df.columns)
@@ -151,11 +152,11 @@ def create_single_layer_adjacency():
         print "Site Number: ", site_num
 
         # Create list of all possible pollinator-plant pairs
-        all_pairs = list(itertools.product(all_pollinators, all_plants))
+        all_pol_plt_pairs = list(itertools.product(all_pollinators, all_plants))
 
         outfile_name = "Site" + site_num + "_Adjacency.dat"
         with open(os.path.join('data', 'adjacency', outfile_name), 'w') as outfile:
-            for pair in all_pairs:
+            for pair in all_pol_plt_pairs:
                 try:
                     pol_pretty_name = POLLINATOR_LOOKUP[pair[0]]
                 except KeyError:
@@ -179,12 +180,50 @@ def create_single_layer_adjacency():
                 outfile.write(" ".join(row)+'\n')
 
 #
-if __name__ == "__main__":
-    SITE_DIR_LOC = "data/sites"
-    ALL_SITES_FILE_LOC = "data/all_sites/AllSites.csv"
+def create_two_layer_adjacency():
+    """Create two adjacency matrices for input to MultiTensor software.
+    All permutations of length 2 of the sites are created. Whichever
+    site is test site has 20% of edges separated for testing prediction."""
+    all_site_pairs = list(itertools.permutations(os.listdir(ADJ_DIR_LOC), 2))
+    print "Number of ordered site pairs", len(all_site_pairs)
+    col_names = ["Edge", "Pollinator", "Plant"] + ['L'+str(i) for i in range(1, 15)]
 
-    POLLINATOR_LOOKUP, PLANT_LOOKUP = create_node_names()
+    for site_pair in all_site_pairs:
+        train_site_num = re.findall(r'\d+', site_pair[0])[0]
+        train_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[0]),
+                                   delim_whitespace=True, header=None,
+                                   names=col_names, index_col=False)
+        train_site = train_site[["Edge", "Pollinator", "Plant", "L"+train_site_num]]
+
+        test_site_num = re.findall(r'\d+', site_pair[1])[0]
+        test_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[1]),
+                                  delim_whitespace=True, header=None,
+                                  names=col_names, index_col=False)
+        test_site = test_site[["Edge", "Pollinator", "Plant", "L"+test_site_num]]
+
+        # Select 20% of test for holdout and drop from test df
+        test_holdout = test_site.sample(frac=0.2)
+        test_site = test_site.drop(test_holdout.index)
+
+        # Combine two layers into single adjacency matrix
+        combined_adj_mat = pd.merge(train_site, test_site, how='outer',
+                                    on=["Edge", "Pollinator", "Plant"])
+        combined_adj_mat.fillna(value=0, inplace=True)
+
+        outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_adjacency.dat"
+        combined_adj_mat.to_csv(os.path.join("data", "two_layer_adjacency", outfile_name),
+                                header=None, index=None, sep=" ")
+
+
+#
+if __name__ == "__main__":
+    SITE_DIR_LOC = os.path.join("data", "sites")
+    ADJ_DIR_LOC = os.path.join("data", "one_layer_adjacency")
+    ALL_SITES_FILE_LOC = os.path.join("data", "all_sites", "AllSites.csv")
+
+    # POLLINATOR_LOOKUP, PLANT_LOOKUP = create_node_names()
     # collapse_to_islands()
     # collaps_to_main_islands()
     # collapse_to_single_layer()
-    create_single_layer_adjacency()
+    # create_single_layer_adjacency()
+    create_two_layer_adjacency()
