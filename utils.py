@@ -186,20 +186,24 @@ def create_two_layer_adjacency():
     site is test site has 20% of edges separated for testing prediction."""
     all_site_pairs = list(itertools.permutations(os.listdir(ADJ_DIR_LOC), 2))
     print "Number of ordered site pairs", len(all_site_pairs)
-    col_names = ["Edge", "Pollinator", "Plant"] + ['L'+str(i) for i in range(1, 15)]
+    col_names = ["Edge", "Pollinator", "Plant"]
 
     for site_pair in all_site_pairs:
         train_site_num = re.findall(r'\d+', site_pair[0])[0]
         train_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[0]),
-                                   delim_whitespace=True, header=None,
-                                   names=col_names, index_col=False)
-        train_site = train_site[["Edge", "Pollinator", "Plant", "L"+train_site_num]]
+                                   delim_whitespace=True,
+                                   header=None,
+                                   index_col=False,
+                                   names=col_names+['L'+train_site_num],
+                                   usecols=[0, 1, 2, 2+int(train_site_num)])
 
         test_site_num = re.findall(r'\d+', site_pair[1])[0]
         test_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[1]),
-                                  delim_whitespace=True, header=None,
-                                  names=col_names, index_col=False)
-        test_site = test_site[["Edge", "Pollinator", "Plant", "L"+test_site_num]]
+                                  delim_whitespace=True,
+                                  header=None,
+                                  index_col=False,
+                                  names=col_names+['L'+test_site_num],
+                                  usecols=[0, 1, 2, 2+int(test_site_num)])
 
         # Select 20% of test for holdout and drop from test df
         test_holdout = test_site.sample(frac=0.2)
@@ -208,12 +212,44 @@ def create_two_layer_adjacency():
         # Combine two layers into single adjacency matrix
         combined_adj_mat = pd.merge(train_site, test_site, how='outer',
                                     on=["Edge", "Pollinator", "Plant"])
+        # TODO Use mask instead of 0 fill value
         combined_adj_mat.fillna(value=0, inplace=True)
 
-        outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_adjacency.dat"
-        combined_adj_mat.to_csv(os.path.join("data", "two_layer_adjacency", outfile_name),
+        combine_outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_adjacency.dat"
+        combined_adj_mat.to_csv(os.path.join("data", "two_layer_adjacency", combine_outfile_name),
                                 header=None, index=None, sep=" ")
 
+        hold_outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_holdout.dat"
+        test_holdout.to_csv(os.path.join("data", "two_layer_holdout", hold_outfile_name),
+                            header=None, index=None, sep=" ")
+
+#
+def create_all_layer_adjacency():
+    """Create one adjacency matrix that has edges for full network.
+    Use to select K by maximizing prediction accuracy."""
+    col_names = ["Edge", "Pollinator", "Plant"]
+    print "Processing site ",
+    for adj_file in os.listdir(ADJ_DIR_LOC):
+        site_num = re.findall(r'\d+', adj_file)[0]
+        print site_num, "..",
+        adj_mat = pd.read_table(os.path.join(ADJ_DIR_LOC, adj_file),
+                                delim_whitespace=True,
+                                header=None,
+                                index_col=False,
+                                names=col_names+['L'+site_num],
+                                usecols=[0, 1, 2, 2+int(site_num)])
+        try:
+            combined_adj_mat = pd.merge(combined_adj_mat, adj_mat,
+                                        how='outer',
+                                        on=["Edge", "Pollinator", "Plant"])
+        except:
+            combined_adj_mat = adj_mat
+
+    combined_adj_mat = combined_adj_mat[["Edge", "Pollinator", "Plant", "L1", "L2", "L3",
+                                         "L4", "L5", "L6", "L7", "L8", "L9", "L10", "L11",
+                                         "L12", "L13", "L14"]]
+    combined_adj_mat.to_csv(os.path.join("data", "all_layer_adjacency", "AllSites_adjacency.dat"),
+                            header=None, index=None, sep=" ")
 
 #
 if __name__ == "__main__":
@@ -226,4 +262,5 @@ if __name__ == "__main__":
     # collaps_to_main_islands()
     # collapse_to_single_layer()
     # create_single_layer_adjacency()
-    create_two_layer_adjacency()
+    # create_two_layer_adjacency()
+    create_all_layer_adjacency()
