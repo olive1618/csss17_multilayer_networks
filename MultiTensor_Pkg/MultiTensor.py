@@ -150,9 +150,9 @@ class MultiTensor :
 		
 		rng=np.random.RandomState(self.rseed)   # Mersenne-Twister random number generator
 
-		infile1=self.folder+'u_K'+str(self.K)+self.w_file
-		infile2=self.folder+'v_K'+str(self.K)+self.w_file
-		w_infile=self.folder+'w_K'+str(self.K)+self.w_file
+		infile1=os.path.join(self.folder, 'u_K'+str(self.K)+self.w_file)
+		infile2=os.path.join(self.folder, 'v_K'+str(self.K)+self.w_file)
+		w_infile=os.path.join(self.folder, 'w_K'+str(self.K)+self.w_file)
 
 		if(self.initialization==0):
 			print " Random initializations"
@@ -230,9 +230,9 @@ class MultiTensor :
 
 
 	def _update_optimal_parameters(self):
-		self.u_f=self.u;				
-		self.v_f=self.v;				
-		self.w_f=self.w;	
+		self.u_f=np.copy(self.u)
+		self.v_f=np.copy(self.v)
+		self.w_f=np.copy(self.w)	
 
 	def output_results(self,maxL,nodes):
 		" Output results after convergence "
@@ -246,12 +246,12 @@ class MultiTensor :
 		infile3=os.path.join(self.folder, "w_K"+str(self.K)+self.end_file)
 		in1=open(infile1,'w')				
 		in3=open(infile3,'w')
-		print in1,"# Max Likelihood= ",maxL," N_real=",self.N_real				
-		print in3,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+		print >>in1,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+		print >>in3,"# Max Likelihood= ",maxL," N_real=",self.N_real				
 		if(self.undirected==False):
 			infile2=os.path.join(self.folder, "v_K"+str(self.K)+self.end_file)
 			in2=open(infile2,'w')				
-			print in2,"# Max Likelihood= ",maxL," N_real=",self.N_real				
+			print >>in2,"# Max Likelihood= ",maxL," N_real=",self.N_real				
 
 
 		# Output membership
@@ -298,10 +298,8 @@ class MultiTensor :
 		self._output_affinity_matrix()	# output on screen				 
 
 		print "Data saved in:";
-		print infile1
-		print infile3
-		if(self.undirected==False):
-			print infile2
+		print infile1;print infile3;
+		if(self.undirected==False):print infile2;
 
 
 	# ----------	----------	----------	----------	----------	
@@ -452,7 +450,7 @@ class MultiTensor :
 		return it,l2,coincide,convergence	
 
 	def cycle_over_realizations(self,A,B,u_list,v_list):
-		maxL=-self.inf
+		maxL=-1000000000;
 		nodes=A[0].nodes()
 
 		for r in range(self.N_real):
@@ -465,7 +463,8 @@ class MultiTensor :
 			coincide=0
 			convergence=False
 			it=0
-			l2=self.inf	
+			l2=self.inf
+			#maxL=self.inf
 			delta_u=delta_v=delta_w=self.inf
 
 			print "Updating r=",r," ..."
@@ -477,7 +476,7 @@ class MultiTensor :
 
 				it,l2,coincide,convergence=self._check_for_convergence(B,it,l2,coincide,convergence)
 			print "r=",r," Likelihood=",l2," iterations=",it,' time=',time.clock()-tic,'s';
-			if(l2>maxL): 
+			if(maxL<l2): 
 				self._update_optimal_parameters()
 				maxL=l2
 			self.rseed+=1	

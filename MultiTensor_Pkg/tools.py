@@ -2,7 +2,7 @@
 # -----------------------------------------------------------------
 #	Functions needed to perform different tasks inside the update routine
 # -----------------------------------------------------------------
-import networkx as nx                                            
+import networkx as nx
 import os
 import numpy as np
 
