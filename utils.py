@@ -2,7 +2,6 @@
 import os
 import re
 import string
-import json
 import itertools
 
 import pandas as pd
@@ -28,14 +27,16 @@ def create_node_names():
                 
                 if "Waiting" in temp[-1]:
                     name = temp[0]
-                elif temp[1] != "sp" and temp[1] != "cf":
-                    name = temp[0][0:3] + '_' + temp[1]
-                elif temp[1] == "cf":
+                elif temp[1]=="cf":
                     name = temp[0] + '_' + temp[-1]
-                elif temp[1] == "sp" and temp[-1].isdigit():
+                elif temp[1]=="sp" and temp[-1].isdigit():
                     name = temp[0] + '_' + temp[-1]
-                elif temp[1] == "sp" and temp[-2].isdigit():
+                elif temp[1]=="sp" and temp[-2].isdigit():
                     name = temp[0] + '_' + temp[-2]
+                elif temp[1] not in ['sp', 'cf'] and temp[-1] not in ['f', 'm']:
+                    name = temp[0][0:3] + '_' + temp[1]
+                elif temp[1] not in ['sp', 'cf'] and temp[-1] in ['f', 'm']:
+                    name = temp[0][0:3] + '_' + temp[1] + '_' + temp[-1]
                 else:
                     name = temp[0]
                 # Drop non ascii characters
@@ -47,27 +48,21 @@ def create_node_names():
                 temp = plnt.translate(None, string.punctuation).split(' ')
                 if "Waiting" in temp[-1]:
                     name = temp[0]
-                elif temp[1] != "sp" and temp[1] != "cf":
-                    name = temp[0][0:3] + '_' + temp[1]
-                elif temp[1] == "cf":
+                elif temp[1]=="cf":
                     name = temp[0] + '_' + temp[-1]
-                elif temp[1] == "sp" and temp[-1].isdigit():
+                elif temp[1]=="sp" and temp[-1].isdigit():
                     name = temp[0] + '_' + temp[-1]
-                elif temp[1] == "sp" and temp[-2].isdigit():
+                elif temp[1]=="sp" and temp[-2].isdigit():
                     name = temp[0] + '_' + temp[-2]
+                elif temp[1] not in ['sp', 'cf'] and temp[-1] not in ['f', 'm']:
+                    name = temp[0][0:3] + '_' + temp[1]
+                elif temp[1] not in ['sp', 'cf'] and temp[-1] in ['f', 'm']:
+                    name = temp[0][0:3] + '_' + temp[1] + '_' + temp[-1]
                 else:
                     name = temp[0]
 
                 name = ''.join([i if ord(i) < 128 else ' ' for i in name])
                 plant_key[plnt] = name
-  
-    with open('poll_key.txt','w') as outfile:
-        for value in pollinator_key.values():
-            outfile.write('{}\n'.format(value))
-    
-    with open('plnt_key.txt','w') as outfile:
-        for value in plant_key.values():
-            outfile.write('{}\n'.format(value))
 
     return pollinator_key, plant_key
 
@@ -235,7 +230,7 @@ def create_two_layer_adjacency():
         test_site.drop(test_holdout.index, inplace=True)
 
         # Combine two layers into single adjacency matrix
-        two_adj_mat = pd.merge(train_site, test_site, how='outer',
+        two_adj_mat = pd.merge(train_site, test_site, how='inner',
                                on=["Edge", "Pollinator", "Plant"])
         # TODO Use mask instead of 0 fill value
         two_adj_mat.fillna(value=0, inplace=True)
@@ -265,7 +260,7 @@ def create_all_layer_adjacency():
 
         try:
             combined_adj_mat = pd.merge(combined_adj_mat, adj_mat,
-                                        how='outer',
+                                        how='inner',
                                         on=["Edge", "Pollinator", "Plant"])
         except NameError:
             combined_adj_mat = adj_mat
@@ -293,6 +288,6 @@ if __name__ == "__main__":
     # collapse_to_islands()
     # collaps_to_main_islands()
     # collapse_to_single_layer()
-    # create_single_layer_adjacency()
-    # create_two_layer_adjacency()
-    # create_all_layer_adjacency()
+    create_single_layer_adjacency()
+    create_two_layer_adjacency()
+    create_all_layer_adjacency()
