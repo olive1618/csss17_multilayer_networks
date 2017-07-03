@@ -203,7 +203,7 @@ class MultiTensor :
 		print " W:";
 		for l in range(self.L):
 			if(self.assortative==False):
-				print "a=",l;
+				print "layer=",l;
 				for k in range(self.K):
 					for q in range(self.K):
 						print self.w[k][q][l],
@@ -283,7 +283,7 @@ class MultiTensor :
 		# Output affinity matrix
 		for l in range(self.L):
 			if(self.assortative==False):
-				print >> in3, "a=",l;
+				print >> in3, "layer=",l;
 				for k in range(self.K):
 					for q in range(self.K):
 						print >> in3, self.w_f[k][q][l],
