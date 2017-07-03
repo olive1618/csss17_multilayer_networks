@@ -112,3 +112,5 @@ ENV/
 # Ignore data files
 .DS_Store
 *.dat
+!AllSites_adjacency.dat
+!AllSites_holdout.dat
