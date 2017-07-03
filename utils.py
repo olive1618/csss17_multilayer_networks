@@ -2,6 +2,7 @@
 import os
 import re
 import string
+import json
 import itertools
 
 import pandas as pd
@@ -24,26 +25,49 @@ def create_node_names():
             if poll not in pollinator_key:
                 # Remove punctuation and create list of strings
                 temp = poll.translate(None, string.punctuation).split(' ')
-                if temp[1] != "sp":
-                    name = temp[0][0] + '_' + temp[1]
+                
+                if "Waiting" in temp[-1]:
+                    name = temp[0]
+                elif temp[1] != "sp" and temp[1] != "cf":
+                    name = temp[0][0:3] + '_' + temp[1]
+                elif temp[1] == "cf":
+                    name = temp[0] + '_' + temp[-1]
+                elif temp[1] == "sp" and temp[-1].isdigit():
+                    name = temp[0] + '_' + temp[-1]
+                elif temp[1] == "sp" and temp[-2].isdigit():
+                    name = temp[0] + '_' + temp[-2]
                 else:
                     name = temp[0]
-                if len(temp) == 3:
-                    name += '_' + temp[2]
+                # Drop non ascii characters
                 name = ''.join([i if ord(i) < 128 else ' ' for i in name])
                 pollinator_key[poll] = name
 
         for plnt in df.columns:
             if plnt not in plant_key:
                 temp = plnt.translate(None, string.punctuation).split(' ')
-                if temp[1] != "sp":
-                    name = temp[0][0] + '_' + temp[1]
+                if "Waiting" in temp[-1]:
+                    name = temp[0]
+                elif temp[1] != "sp" and temp[1] != "cf":
+                    name = temp[0][0:3] + '_' + temp[1]
+                elif temp[1] == "cf":
+                    name = temp[0] + '_' + temp[-1]
+                elif temp[1] == "sp" and temp[-1].isdigit():
+                    name = temp[0] + '_' + temp[-1]
+                elif temp[1] == "sp" and temp[-2].isdigit():
+                    name = temp[0] + '_' + temp[-2]
                 else:
                     name = temp[0]
-                if len(temp) == 3:
-                    name += '_' + temp[2]
+
                 name = ''.join([i if ord(i) < 128 else ' ' for i in name])
                 plant_key[plnt] = name
+  
+    with open('poll_key.txt','w') as outfile:
+        for value in pollinator_key.values():
+            outfile.write('{}\n'.format(value))
+    
+    with open('plnt_key.txt','w') as outfile:
+        for value in plant_key.values():
+            outfile.write('{}\n'.format(value))
 
     return pollinator_key, plant_key
 
@@ -139,28 +163,6 @@ def collapse_to_single_layer():
     base_df.to_csv('data/all_sites/AllSites.csv')
 
 #
-def detect_null_pp_pairs():
-    """Find those plant-pollinator pairs that never have an interaction and
-    remove them from the adjacency matrices."""
-    all_adj_loc = os.path.join("data", "all_layer_adjacency", "AllSites_adjacency.dat")
-    col_names = ["Edge", "Pollinator", "Plant", "L1", "L2", "L3", "L4", "L5", "L6",
-                 "L7", "L8", "L9", "L10", "L11", "L12", "L13", "L14"]
-    all_adj_mat = pd.read_table(all_adj_loc,
-                                delim_whitespace=True,
-                                header=None,
-                                index_col=False,
-                                names=col_names)
-    null_pair_list = []
-    for row in all_adj_mat.itertuples():
-        poll = row[2]
-        plt = row[3]
-        sum_interxn = sum(row[4:])
-        if sum_interxn == 0:
-            null_pair_list.append((poll, plt))
-
-    return null_pair_list
-
-#
 def create_single_layer_adjacency():
     """Create single adjacency matrices for eventual use in MultiTensor software.
     Pollinators are rows and plants are columns. Directed so node1 --> node2"""
@@ -172,13 +174,13 @@ def create_single_layer_adjacency():
     for file_name in os.listdir(SITE_DIR_LOC):
         site_df = pd.read_csv(os.path.join(SITE_DIR_LOC, file_name), header=0, index_col=0)
         site_num = re.findall(r'\d+', file_name)[0]
-        print site_num, ".."
+        print site_num, "..",
 
         # Create list of all possible pollinator-plant pairs
         all_pol_plt_pairs = list(itertools.product(all_pollinators, all_plants))
 
         outfile_name = "Site" + site_num + "_Adjacency.dat"
-        with open(os.path.join(ADJ_DIR_LOC, outfile_name), 'w') as outfile:
+        with open(os.path.join(ONE_ADJ_DIR_LOC, outfile_name), 'w') as outfile:
             for pair in all_pol_plt_pairs:
                 try:
                     pol_pretty_name = POLLINATOR_LOOKUP[pair[0]]
@@ -193,7 +195,7 @@ def create_single_layer_adjacency():
                     plt_pretty_name = pair[1]
 
                 # Check if pol-plt have interaction in any layer
-                if (pol_pretty_name, plt_pretty_name) not in NULL_PAIRS:
+                if all_sites_df.loc[pair[0], pair[1]] > 0:
                     # Row format: E node1name node2name L1wght L2wght L3wght ...
                     row = ['E', pol_pretty_name, plt_pretty_name] + ['0'] * 14
                     # Add pol/plt count at this layer if exists, else retain 0
@@ -209,40 +211,38 @@ def create_two_layer_adjacency():
     """Create two adjacency matrices for input to MultiTensor software.
     All permutations of length 2 of the sites are created. Whichever
     site is test site has 20% of edges separated for testing prediction."""
-    all_site_pairs = list(itertools.permutations(os.listdir(ADJ_DIR_LOC), 2))
-    print "Number of ordered site pairs", len(all_site_pairs)
+    all_site_pairs = list(itertools.permutations(os.listdir(ONE_ADJ_DIR_LOC), 2))
+    print "\nNumber of ordered site pairs", len(all_site_pairs)
     col_names = ["Edge", "Pollinator", "Plant"]
 
     for site_pair in all_site_pairs:
         train_site_num = re.findall(r'\d+', site_pair[0])[0]
-        train_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[0]),
+        train_site = pd.read_table(os.path.join(ONE_ADJ_DIR_LOC, site_pair[0]),
                                    delim_whitespace=True,
-                                   header=None,
-                                   index_col=False,
+                                   header=None, index_col=False,
                                    names=col_names+['L'+train_site_num],
                                    usecols=[0, 1, 2, 2+int(train_site_num)])
 
         test_site_num = re.findall(r'\d+', site_pair[1])[0]
-        test_site = pd.read_table(os.path.join(ADJ_DIR_LOC, site_pair[1]),
+        test_site = pd.read_table(os.path.join(ONE_ADJ_DIR_LOC, site_pair[1]),
                                   delim_whitespace=True,
-                                  header=None,
-                                  index_col=False,
+                                  header=None, index_col=False,
                                   names=col_names+['L'+test_site_num],
                                   usecols=[0, 1, 2, 2+int(test_site_num)])
 
         # Select 20% of test for holdout and drop from test df
         test_holdout = test_site.sample(frac=0.2)
-        test_site = test_site.drop(test_holdout.index)
+        test_site.drop(test_holdout.index, inplace=True)
 
         # Combine two layers into single adjacency matrix
-        combined_adj_mat = pd.merge(train_site, test_site, how='outer',
-                                    on=["Edge", "Pollinator", "Plant"])
+        two_adj_mat = pd.merge(train_site, test_site, how='outer',
+                               on=["Edge", "Pollinator", "Plant"])
         # TODO Use mask instead of 0 fill value
-        combined_adj_mat.fillna(value=0, inplace=True)
+        two_adj_mat.fillna(value=0, inplace=True)
 
         combine_outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_adjacency.dat"
-        combined_adj_mat.to_csv(os.path.join("data", "two_layer_adjacency", combine_outfile_name),
-                                header=None, index=None, sep=" ")
+        two_adj_mat.to_csv(os.path.join("data", "two_layer_adjacency", combine_outfile_name),
+                           header=None, index=None, sep=" ")
 
         hold_outfile_name = "Sites_" + train_site_num + "_" + test_site_num + "_holdout.dat"
         test_holdout.to_csv(os.path.join("data", "two_layer_holdout", hold_outfile_name),
@@ -253,21 +253,21 @@ def create_all_layer_adjacency():
     """Create one adjacency matrix that has edges for full network.
     Use to select K by maximizing prediction accuracy."""
     col_names = ["Edge", "Pollinator", "Plant"]
-    print "Processing site ",
-    for adj_file in os.listdir(ADJ_DIR_LOC):
+    print "\nAll site adjacency",
+    for adj_file in os.listdir(ONE_ADJ_DIR_LOC):
         site_num = re.findall(r'\d+', adj_file)[0]
         print site_num, "..",
-        adj_mat = pd.read_table(os.path.join(ADJ_DIR_LOC, adj_file),
+        adj_mat = pd.read_table(os.path.join(ONE_ADJ_DIR_LOC, adj_file),
                                 delim_whitespace=True,
-                                header=None,
-                                index_col=False,
+                                header=None, index_col=False,
                                 names=col_names+['L'+site_num],
                                 usecols=[0, 1, 2, 2+int(site_num)])
+
         try:
             combined_adj_mat = pd.merge(combined_adj_mat, adj_mat,
                                         how='outer',
                                         on=["Edge", "Pollinator", "Plant"])
-        except:
+        except NameError:
             combined_adj_mat = adj_mat
 
     combined_adj_mat = combined_adj_mat[["Edge", "Pollinator", "Plant", "L1", "L2", "L3",
@@ -276,7 +276,7 @@ def create_all_layer_adjacency():
 
     # Split adjacency matrix in 80% train and 20% test
     combined_holdout_mat = combined_adj_mat.sample(frac=0.2)
-    combined_adj_mat = combined_adj_mat.drop(combined_holdout_mat.index)
+    combined_adj_mat.drop(combined_holdout_mat.index, inplace=True)
 
     combined_adj_mat.to_csv(os.path.join("data", "all_layer_adjacency", "AllSites_adjacency.dat"),
                             header=None, index=None, sep=" ")
@@ -286,14 +286,13 @@ def create_all_layer_adjacency():
 #
 if __name__ == "__main__":
     SITE_DIR_LOC = os.path.join("data", "sites")
-    ADJ_DIR_LOC = os.path.join("data", "one_layer_adjacency")
+    ONE_ADJ_DIR_LOC = os.path.join("data", "one_layer_adjacency")
     ALL_SITES_FILE_LOC = os.path.join("data", "all_sites", "AllSites.csv")
 
     POLLINATOR_LOOKUP, PLANT_LOOKUP = create_node_names()
     # collapse_to_islands()
     # collaps_to_main_islands()
     # collapse_to_single_layer()
-    NULL_PAIRS = detect_null_pp_pairs()
-    create_single_layer_adjacency()
+    # create_single_layer_adjacency()
     # create_two_layer_adjacency()
     # create_all_layer_adjacency()
