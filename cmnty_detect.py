@@ -13,41 +13,47 @@ import re
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def prep_uwv_tensors(this_k):
     """Read outputted MultiTensor data files holding u and v matrices and
     w tensor into numpy arrays"""
     # Read u matrix file to a dataframe and then convert to np array
-    u_df = pd.read_table(os.path.join(ALL_ADJ_DIR, 'u_K'+this_k+'.dat'),
+    u_df = pd.read_table(os.path.join(MT_UWV_OUTPUT, 'u_K'+this_k+'.dat'),
                          delim_whitespace=True, skiprows=[0],
                          header=None, index_col=0)
     u_matrix = np.asarray(u_df.values)
 
     # Read v matrix file to a dataframe and then convert to np array
-    v_df = pd.read_table(os.path.join(ALL_ADJ_DIR, 'v_K'+this_k+'.dat'),
+    v_df = pd.read_table(os.path.join(MT_UWV_OUTPUT, 'v_K'+this_k+'.dat'),
                          delim_whitespace=True, skiprows=[0],
                          header=None, index_col=0)
     v_matrix = np.asarray(v_df.values)
 
     # Create placeholder 3d tensor. Read thru file and build tensor out
     w_tensor = np.zeros((int(this_k), int(this_k), 14))
-    with open(os.path.join(ALL_ADJ_DIR, 'w_K'+this_k+'.dat'), 'r') as infile:
+    layer_matrix = np.zeros((int(this_k), int(this_k))) # Dummy var to avoid assign b4 define
+
+    with open(os.path.join(MT_UWV_OUTPUT, 'w_K'+this_k+'.dat'), 'r') as infile:
         infile.readline() #Skip info on first row
-        flag = 0
         for line in infile:
-            if "layer" in line:
-                this_layer = int(re.findall(r'\d+', line)[0])
-                flag = 1
-                continue
-            if flag == 1:
-                layer1_array = np.asarray(line.split(" "), dtype=np.float64)
-                flag = 2
-                continue
-            if flag == 2:
-                layer2_array = np.asarray(line.split(" "), dtype=np.float64)
-                w_tensor[:, :, this_layer] = np.asarray((layer1_array, layer2_array))
-                flag = 0
+            line = line.strip()
+            if line:
+                if "layer" in line:
+                    this_layer = int(re.findall(r'\d+', line)[0])
+                    if this_layer > 0:
+                        w_tensor[:, :, this_layer-1] = layer_matrix
+                    layer_matrix = np.zeros((int(this_k), int(this_k)))
+                    counter = 0
+
+                else:
+                    layer_array = np.asarray(line.split(" "), dtype=np.float64)
+                    layer_matrix[counter, :] = layer_array
+                    counter += 1
+
+    # Add final matrix for last layers
+    w_tensor[:, :, this_layer] = layer_matrix
 
     print "Shapes --> U:", np.shape(u_matrix), "W:", np.shape(w_tensor), "V:", np.shape(v_matrix)
 
@@ -100,11 +106,9 @@ def calculate_directed_auc(exp_act_ew_dict):
     edge weights to match to ordering of actual edge weights.
     sorted_m is a list of tuples (expected_ij, actual_ij) order ascending by
     actuals"""
-    print "\nCalculate AUC for layer ",
     sum_layers_auc = 0.0
 
     for layer in range(1, 15):
-        print layer, "..",
         sorted_m = sorted(exp_act_ew_dict[layer], key=lambda tup: tup[0])
         max_actual_integer = max(exp_act_ew_dict[layer], key=lambda tup: tup[1])[1]
         observed_actuals = np.zeros(max_actual_integer+1)
@@ -143,34 +147,42 @@ def select_k():
     - Put those steps in a loop for multiple values of k
     - Select k with highest prediction accuracy
     """
-    #python main.py -a="AllSites_adjacency.dat" -f="all_layer_adjacency" -l=14 -k=2
+    # python main.py -a="AllSites_adjacency.dat" -f="all_layer_adjacency" -l=14 -k=2
     checked_ks = []
+    all_auc = {}
 
-    for file_name in os.listdir(ALL_ADJ_DIR):
-        if file_name.split('_')[0] in ['u', 'v', 'w']:
-            current_k = re.findall(r'\d+', file_name)[0]
-            if current_k not in checked_ks:
-                print "K =", current_k
-                checked_ks.append(current_k)
-                u_mat, w_tens, v_mat, node_names = prep_uwv_tensors(current_k)
-                expect_edg_wght = multiply_uwv(u_mat, w_tens, v_mat)
+    for file_name in os.listdir(MT_UWV_OUTPUT):
+        current_k = re.findall(r'\d+', file_name)[0]
+        if current_k not in checked_ks:
+            print "K =", current_k
+            checked_ks.append(current_k)
+            u_mat, w_tens, v_mat, node_names = prep_uwv_tensors(current_k)
+            expect_edg_wght = multiply_uwv(u_mat, w_tens, v_mat)
 
-                # Read in actual edge weights from holdout file
-                col_names = ["Pollinator", "Plant"] + ["L"+str(l) for l in range(1, 15)]
-                actual_edg_wght_df = pd.read_table(os.path.join(ALL_ADJ_DIR, 'AllSites_holdout.dat'),
-                                                   delim_whitespace=True,
-                                                   header=None, index_col=False,
-                                                   names=col_names,
-                                                   usecols=[i for i in range(1, 17)])
+            # Read in actual edge weights from holdout file
+            col_names = ["Pollinator", "Plant"] + ["L"+str(l) for l in range(1, 15)]
+            actual_edg_wgt_df = pd.read_table(os.path.join(ALL_ADJ_DIR, 'AllSites_holdout.dat'),
+                                              delim_whitespace=True,
+                                              header=None, index_col=False,
+                                              names=col_names,
+                                              usecols=[i for i in range(1, 17)])
 
-                exp_act = build_exp_act_tups(expect_edg_wght, actual_edg_wght_df, node_names)
-                summed_auc = calculate_directed_auc(exp_act)
-                print "\nSummed AUC:", summed_auc
+            exp_act = build_exp_act_tups(expect_edg_wght, actual_edg_wgt_df, node_names)
+            summed_auc = calculate_directed_auc(exp_act)
+            print "Summed AUC:", summed_auc, "\n"
+            all_auc[int(current_k)] = summed_auc
 
+    # Plot auc values for each k
+    x = np.array(all_auc.keys())
+    y = np.array(all_auc.values())
 
+    x_sort_arg = np.argsort(x)
+    plt.plot(x[x_sort_arg], y[x_sort_arg])
+    plt.title("Summed AUC by K Communities")
+    plt.show()
 
-
+#
 if __name__ == "__main__":
     ALL_ADJ_DIR = os.path.join("data", "all_layer_adjacency")
-    # AllSites_holdout.dat
+    MT_UWV_OUTPUT = os.path.join("data", "multitensor_output")
     select_k()
