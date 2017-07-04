@@ -15,6 +15,12 @@ import pandas as pd
 import numpy as np
 
 
+def calculate_directed_AUC(exp_act_ew_dict):
+    """Calculate area under the ROC curve. Ideal is for ordering of expected edge weights
+    to match to ordering of actual edge weights."""
+    pass
+
+#
 def select_k():
     """Select global parameter k, which is number of communities
     MultiTensor divides the network layers into. Use 80% of all
@@ -23,7 +29,7 @@ def select_k():
     - Input AllSites_adjacency.dat to MultiTensor main.py
     - Confirm dimensions of 3 outputted matrices u, v, w
     - Get product of u * w * v.  Output matrix should be size N * N * L
-    - Compare E(edge weight) with actual
+    - Compare E(edge weight) with actual with AUC calculation
     - Put those steps in a loop for multiple values of k
     - Select k with highest prediction accuracy
     """
@@ -68,14 +74,36 @@ def select_k():
                 
                 print "U shape:", np.shape(u_mat), "V shape:", np.shape(v_mat), "W shape:", np.shape(w_mat)
 
-                # Matrix multiple u and each layer of w. Product shape is N x K x L
-                u_dot_w_dot_v = np.zeros((np.shape(u_mat)[0], np.shape(u_mat)[0], 14))
+                # Matrix multiple u and each layer of w and v. Product shape is N x N x L
+                expect_edg_wght = np.zeros((np.shape(u_mat)[0], np.shape(u_mat)[0], 14))
                 for lyr in range(14):
                     u_dot_w = np.mat(u_mat) * np.mat(w_mat[:, :, lyr])
-                    u_dot_w_dot_v[:, :, lyr] = u_dot_w * np.mat(v_mat.T)
+                    expect_edg_wght[:, :, lyr] = u_dot_w * np.mat(v_mat.T)
                 
-                expected_edg_wght = np.sum(u_dot_w_dot_v, axis=2)
-                np.savetxt("expected_edg_wght.txt", expected_edg_wght, delimiter=',', newline='\n')
+                # Ordered node names to use in comparison
+                node_names = list(v_df.index)
+
+                col_names = ["Pollinator", "Plant"] + ["L"+l for l in range(1, 15)]
+                actual_edg_wght_df = pd.read_table(os.path.join(ALL_ADJ_DIR, 'AllSites_holdout.dat'),
+                                                   delim_whitespace=True,
+                                                   header=None, index_col=False,
+                                                   names=col_names, usecols=[1:])
+
+                
+                # Build list of tuples of (expected_ew, actual_ew) for AUC calculation
+                exp_act = {lyr: [] for lyr in range(1, 15)}
+
+                for row in actual_edg_wght_df.itertuples():
+                    pol_idx = node_names.index(row[1])
+                    plt_idx = node_names.index(row[2])
+                    for idx, act_edg_wght in enumerate(row[3:]):
+                        expected_ew = expect_edg_wght[pol_idx, plt_idx, idx]
+                        # Add tuple to correct layer
+                        exp_act[idx+1].append((expected_ew, act_edg_wght))
+                
+                calc_auc = calculate_directed_AUC(exp_act)
+
+
 
 
 if __name__ == "__main__":
