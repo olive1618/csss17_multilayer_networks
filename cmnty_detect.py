@@ -16,26 +16,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def prep_uwv_tensors(this_k):
+def prep_uwv_tensors(file_dir, file_end, this_k, num_layers):
     """Read outputted MultiTensor data files holding u and v matrices and
     w tensor into numpy arrays"""
     # Read u matrix file to a dataframe and then convert to np array
-    u_df = pd.read_table(os.path.join(MT_UWV_OUTPUT, 'u_K'+this_k+'.dat'),
+    u_df = pd.read_table(os.path.join(file_dir, 'u_K'+file_end),
                          delim_whitespace=True, skiprows=[0],
                          header=None, index_col=0)
-    u_matrix = np.asarray(u_df.values)
+    u_matrix = np.asarray(u_df.values) # Shape N * K
 
     # Read v matrix file to a dataframe and then convert to np array
-    v_df = pd.read_table(os.path.join(MT_UWV_OUTPUT, 'v_K'+this_k+'.dat'),
+    v_df = pd.read_table(os.path.join(file_dir, 'v_K'+file_end),
                          delim_whitespace=True, skiprows=[0],
                          header=None, index_col=0)
-    v_matrix = np.asarray(v_df.values)
+    v_matrix = np.asarray(v_df.values) # Shape N * K
 
     # Create placeholder 3d tensor. Read thru file and build tensor out
-    w_tensor = np.zeros((int(this_k), int(this_k), 14))
+    w_tensor = np.zeros((int(this_k), int(this_k), num_layers)) # Shape K * K * L
     layer_matrix = np.zeros((int(this_k), int(this_k))) # Dummy var to avoid assign b4 define
 
-    with open(os.path.join(MT_UWV_OUTPUT, 'w_K'+this_k+'.dat'), 'r') as infile:
+    with open(os.path.join(file_dir, 'w_K'+file_end), 'r') as infile:
         infile.readline() #Skip info on first row
         for line in infile:
             line = line.strip()
@@ -52,7 +52,7 @@ def prep_uwv_tensors(this_k):
                     layer_matrix[counter, :] = layer_array
                     counter += 1
 
-    # Add final matrix for last layers
+    # Add final matrix for last layer
     w_tensor[:, :, this_layer] = layer_matrix
 
     print "Shapes --> U:", np.shape(u_matrix), "W:", np.shape(w_tensor), "V:", np.shape(v_matrix)
@@ -63,19 +63,25 @@ def prep_uwv_tensors(this_k):
     return u_matrix, w_tensor, v_matrix, node_list
 
 #
-def multiply_uwv(u_matrix, w_tensor, v_matrix):
+def multiply_uwv(u_matrix, w_tensor, v_matrix, num_layers):
     """Matrix multiply u, each layer of w and v. Product shape is N x N x L"""
-    u_dot_w_dot_v = np.zeros((np.shape(u_matrix)[0], np.shape(u_matrix)[0], 14))
-    for lyr in range(14):
+    u_dot_w_dot_v = np.zeros((np.shape(u_matrix)[0], np.shape(u_matrix)[0], num_layers))
+    for lyr in range(num_layers):
         u_dot_w = np.mat(u_matrix) * np.mat(w_tensor[:, :, lyr])
         u_dot_w_dot_v[:, :, lyr] = u_dot_w * np.mat(v_matrix.T)
 
     return u_dot_w_dot_v
 
 #
-def build_exp_act_tups(u_dot_w_dot_v, actual_ew_df, node_list):
+def build_exp_act_tups(u_dot_w_dot_v, actual_ew_df, node_list, num_layers):
     """Build dict of lists of tuples of (expected_ew, actual_ew) for AUC calculation"""
-    exp_act_ew_dict = {lyr: [] for lyr in range(1, 15)}
+    if num_layers == 14:
+        exp_act_ew_dict = {lyr: [] for lyr in range(1, num_layers+1)}
+        plus_i = 0
+    elif num_layers == 2:
+        test_lyr = int(list(actual_ew_df.columns)[-1][1:])
+        exp_act_ew_dict = {test_lyr: []}
+        plus_i = 1
 
     for row in actual_ew_df.itertuples():
         try:
@@ -90,13 +96,16 @@ def build_exp_act_tups(u_dot_w_dot_v, actual_ew_df, node_list):
 
         for idx, act_edg_wght in enumerate(row[3:]):
             if pol_idx != 'x' and plt_idx != 'x':
-                expected_ew = u_dot_w_dot_v[pol_idx, plt_idx, idx]
+                expected_ew = u_dot_w_dot_v[pol_idx, plt_idx, idx+plus_i]
             else:
                 # If either the plant or the pollinator was not in the training set, so
                 #  no estimate is available, use expected edge weight of zero
                 expected_ew = 0.0
             # Add tuple to correct layer
-            exp_act_ew_dict[idx+1].append((expected_ew, act_edg_wght))
+            if num_layers == 14:
+                exp_act_ew_dict[idx+1].append((expected_ew, act_edg_wght))
+            elif num_layers == 2:
+                exp_act_ew_dict[test_lyr].append((expected_ew, act_edg_wght))
 
     return exp_act_ew_dict
 
@@ -108,7 +117,7 @@ def calculate_directed_auc(exp_act_ew_dict):
     actuals"""
     sum_layers_auc = 0.0
 
-    for layer in range(1, 15):
+    for layer in exp_act_ew_dict.keys():
         sorted_m = sorted(exp_act_ew_dict[layer], key=lambda tup: tup[0])
         max_actual_integer = max(exp_act_ew_dict[layer], key=lambda tup: tup[1])[1]
         observed_actuals = np.zeros(max_actual_integer+1)
@@ -156,8 +165,10 @@ def select_k():
         if current_k not in checked_ks:
             print "K =", current_k
             checked_ks.append(current_k)
-            u_mat, w_tens, v_mat, node_names = prep_uwv_tensors(current_k)
-            expect_edg_wght = multiply_uwv(u_mat, w_tens, v_mat)
+            u_mat, w_tens, v_mat, node_names = prep_uwv_tensors(file_dir=MT_UWV_OUTPUT,
+                                                                file_end=current_k+'.dat',
+                                                                this_k=current_k, num_layers=14)
+            expect_edg_wght = multiply_uwv(u_mat, w_tens, v_mat, num_layers=14)
 
             # Read in actual edge weights from holdout file
             col_names = ["Pollinator", "Plant"] + ["L"+str(l) for l in range(1, 15)]
@@ -167,22 +178,66 @@ def select_k():
                                               names=col_names,
                                               usecols=[i for i in range(1, 17)])
 
-            exp_act = build_exp_act_tups(expect_edg_wght, actual_edg_wgt_df, node_names)
+            exp_act = build_exp_act_tups(expect_edg_wght, actual_edg_wgt_df,
+                                         node_names, num_layers=14)
             summed_auc = calculate_directed_auc(exp_act)
             print "Summed AUC:", summed_auc, "\n"
             all_auc[int(current_k)] = summed_auc
 
-    # Plot auc values for each k
-    x = np.array(all_auc.keys())
-    y = np.array(all_auc.values())
+    def plot_auc_by_k():
+        """Plot auc values for each k to select global k"""
+        x_vals = np.array(all_auc.keys())
+        y_vals = np.array(all_auc.values())
 
-    x_sort_arg = np.argsort(x)
-    plt.plot(x[x_sort_arg], y[x_sort_arg])
-    plt.title("Summed AUC by K Communities")
-    plt.show()
+        x_sort_arg = np.argsort(x_vals)
+        plt.plot(x_vals[x_sort_arg], y_vals[x_sort_arg])
+        plt.title("Summed AUC by K Communities")
+        plt.show()
+
+    plot_auc_by_k()
+
+#
+def two_site_community_detection():
+    """
+    python main.py -a="Sites_1_1_adjacency.dat" -f="two_layer_adjacency" -l=2 -k=3 -E="_1_1.dat"
+    """
+    processed_site_pairs = []
+    all_auc = {}
+
+    for file_name in os.listdir(MT_TWO_DIR):
+        current_site_pair = (re.findall(r'\d+', file_name)[1], re.findall(r'\d+', file_name)[2])
+        if current_site_pair not in processed_site_pairs:
+            print "Site pair:", current_site_pair
+            processed_site_pairs.append(current_site_pair)
+
+            mt_output_filename = '3_{}_{}.dat'.format(current_site_pair[0], current_site_pair[1])
+            u_mat, w_tens, v_mat, node_names = prep_uwv_tensors(file_dir=MT_TWO_DIR,
+                                                                file_end=mt_output_filename,
+                                                                this_k=3, num_layers=2)
+            expect_edg_wght = multiply_uwv(u_mat, w_tens, v_mat, num_layers=2)
+
+            # Read in actual edge weights from holdout file
+            holdout_file = "Sites_{}_{}_holdout.dat".format(current_site_pair[0],
+                                                            current_site_pair[1])
+            col_names = ["Pollinator", "Plant", "L"+current_site_pair[1]]
+            actual_edg_wgt_df = pd.read_table(os.path.join(TWO_ADJ_HOLDOUT_DIR, holdout_file),
+                                              delim_whitespace=True,
+                                              header=None, index_col=False,
+                                              names=col_names, usecols=[1, 2, 3])
+
+            exp_act = build_exp_act_tups(expect_edg_wght, actual_edg_wgt_df,
+                                         node_names, num_layers=2)
+            pair_auc = calculate_directed_auc(exp_act)
+            print "Pair AUC:", pair_auc, "\n"
+            all_auc[(int(current_site_pair[0]), int(current_site_pair[1]))] = pair_auc
+
+    return all_auc
 
 #
 if __name__ == "__main__":
     ALL_ADJ_DIR = os.path.join("data", "all_layer_adjacency")
-    MT_UWV_OUTPUT = os.path.join("data", "multitensor_output")
-    select_k()
+    MT_UWV_OUTPUT = os.path.join("data", "multitensor_output_k_select")
+    MT_TWO_DIR = os.path.join("data", "multitensor_output_2_layer")
+    TWO_ADJ_HOLDOUT_DIR = os.path.join("data", "two_layer_holdout")
+    # select_k()
+    all_pair_auc = two_site_community_detection()
