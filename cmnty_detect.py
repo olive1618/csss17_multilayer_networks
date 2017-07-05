@@ -14,6 +14,7 @@ import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def prep_uwv_tensors(file_dir, file_end, this_k, num_layers):
@@ -231,7 +232,29 @@ def two_site_community_detection():
             print "Pair AUC:", pair_auc, "\n"
             all_auc[(int(current_site_pair[0]), int(current_site_pair[1]))] = pair_auc
 
-    return all_auc
+    def plot_pairwise_auc():
+        """Plot the pairwise directed AUC for every site pair"""
+        hm_npa = np.zeros((14, 14))
+        for site_pair, calc_auc in all_auc.items():
+            train_site = int(site_pair[0]) - 1
+            test_site = int(site_pair[1]) - 1
+            hm_npa[train_site, test_site] = calc_auc
+        ax = sns.heatmap(hm_npa, cmap="YlGnBu", cbar=True,
+                         linewidths=0.1, center=0.67,
+                         xticklabels=[i for i in range(1, 15)],
+                         yticklabels=[i for i in range(1, 15)],
+                         cbar_kws={'orientation': 'horizontal'})
+        plt.title("Pairwise Community Detection")
+        sns.plt.show()
+
+    def plot_auc_histogram():
+        """Plot histogram of all AUC values to get center for heatmap"""
+        ax = sns.distplot(all_auc.values())
+        plt.title("AUC Histogram")
+        sns.plt.show()
+
+    plot_pairwise_auc()
+    plot_auc_histogram()
 
 #
 if __name__ == "__main__":
@@ -240,4 +263,4 @@ if __name__ == "__main__":
     MT_TWO_DIR = os.path.join("data", "multitensor_output_2_layer")
     TWO_ADJ_HOLDOUT_DIR = os.path.join("data", "two_layer_holdout")
     # select_k()
-    all_pair_auc = two_site_community_detection()
+    two_site_community_detection()
