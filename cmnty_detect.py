@@ -239,7 +239,8 @@ def two_site_community_detection():
             train_site = int(site_pair[0]) - 1
             test_site = int(site_pair[1]) - 1
             hm_npa[train_site, test_site] = calc_auc
-        ax = sns.heatmap(hm_npa, cmap="YlGnBu", cbar=True,
+        ax = sns.heatmap(hm_npa, cmap="viridis", cbar=True,
+                         vmin=0.3, vmax=1.0,
                          linewidths=0.1, center=0.67,
                          xticklabels=[i for i in range(1, 15)],
                          yticklabels=[i for i in range(1, 15)],
