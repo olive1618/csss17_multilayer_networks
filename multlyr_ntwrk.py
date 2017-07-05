@@ -107,6 +107,6 @@ if __name__ == "__main__":
                       nodeLabelRule={},
                       nodeColorDict=PP_NODE_COLOR,
                       nodeSizeRule={"rule":"degree", "propscale":0.05},
-                      defaultLayerColor="lightgray",
+                      defaultLayerColor="gray",
                       defaultEdgeColor='white',
                       layerLabelRule={})
