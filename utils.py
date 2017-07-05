@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 
 
-def create_node_names():
+def create_node_names(dir_loc):
     """Create lookup table where keys are full plant/pollinator names from the
     files and values are the summary form. If species provided, shorten to genus
     first initial & whole species. If not provided, shorten to whole genus. If
@@ -16,8 +16,8 @@ def create_node_names():
     pollinator_key = {}
     plant_key = {}
 
-    for file_name in os.listdir(SITE_DIR_LOC):
-        df = pd.read_csv(os.path.join(SITE_DIR_LOC, file_name), header=0, index_col=0)
+    for file_name in os.listdir(dir_loc):
+        df = pd.read_csv(os.path.join(dir_loc, file_name), header=0, index_col=0)
 
         # Pollinators are rows and plants are columns
         for poll in df.index:
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     ONE_ADJ_DIR_LOC = os.path.join("data", "one_layer_adjacency")
     ALL_SITES_FILE_LOC = os.path.join("data", "all_sites", "AllSites.csv")
 
-    POLLINATOR_LOOKUP, PLANT_LOOKUP = create_node_names()
+    POLLINATOR_LOOKUP, PLANT_LOOKUP = create_node_names(SITE_DIR_LOC)
     # collapse_to_islands()
     # collaps_to_main_islands()
     # collapse_to_single_layer()
