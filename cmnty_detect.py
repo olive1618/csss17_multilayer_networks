@@ -239,12 +239,21 @@ def two_site_community_detection():
             train_site = int(site_pair[0]) - 1
             test_site = int(site_pair[1]) - 1
             hm_npa[train_site, test_site] = calc_auc
+        
+        xy_labels = [0] * 14
+        for file_name in os.listdir(os.path.join("data", "sites")):
+            site_num = int(re.findall(r'\d+', file_name)[0])
+            site_name = file_name.split('_')[-1].split('.')[0]
+            xy_labels[site_num-1] = site_name
+
         ax = sns.heatmap(hm_npa, cmap="viridis", cbar=True,
                          vmin=0.3, vmax=1.0,
                          linewidths=0.1, center=0.67,
-                         xticklabels=[i for i in range(1, 15)],
-                         yticklabels=[i for i in range(1, 15)],
+                         xticklabels=xy_labels,
+                         yticklabels=xy_labels,
                          cbar_kws={'orientation': 'horizontal'})
+        plt.yticks(rotation=0)
+        plt.xticks(rotation=45)
         plt.title("Pairwise Community Detection")
         sns.plt.show()
 
@@ -254,8 +263,38 @@ def two_site_community_detection():
         plt.title("AUC Histogram")
         sns.plt.show()
 
-    plot_pairwise_auc()
-    plot_auc_histogram()
+    def plot_multiple_measures():
+        """Barplot comparing 1-Jenson-Shannon and Community structure
+        edge prediction"""
+        cd_npa = np.zeros((14, 14))
+        for site_pair, calc_auc in all_auc.items():
+            train_site = int(site_pair[0]) - 1
+            test_site = int(site_pair[1]) - 1
+            cd_npa[train_site, test_site] = calc_auc
+        
+        cd_avg = np.mean(cd_npa, axis=0)
+
+        meas_df = pd.read_csv(os.path.join("data", "multple_measures.csv"),
+                              header=0, index_col=0)
+        meas_df["Avg AUC"] = cd_avg
+        meas_df.reset_index(level=0, inplace=True)
+        meas_df.columns = ["Site", "NDC", "JSD", "CD"]
+        meas_df["1-JSD"] = 1.0 - meas_df["JSD"]
+        meas_df = meas_df[["Site", "1-JSD", "CD"]]
+        meas_df.sort_values(by=["1-JSD", "CD"], ascending=False, inplace=True)
+        meas_long_df = pd.melt(meas_df, id_vars=["Site"],
+                               value_vars=["1-JSD", "CD"])
+
+        ax = sns.barplot(x="Site", y="value", hue="variable",
+                         data=meas_long_df, palette="Greens_d")
+        plt.xticks(rotation=45)
+        plt.ylabel("Average value")
+        plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        sns.plt.show()
+
+    # plot_pairwise_auc()
+    # plot_auc_histogram()
+    # plot_multiple_measures()
 
 #
 if __name__ == "__main__":
