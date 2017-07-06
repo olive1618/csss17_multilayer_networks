@@ -91,6 +91,7 @@ def check_superset():
                 species_list.append(species)
 
     all_species_df_cols = ["Site"+str(l) for l in range(1, 15)]
+    species_list.sort()
     all_species_df = pd.DataFrame({sn:[0]*len(species_list) for sn in all_species_df_cols},
                                   index=species_list)
 
@@ -115,6 +116,7 @@ def check_superset():
 
     all_species_df = all_species_df[["Site1", "Site2", "Site3", "Site4", "Site5", "Site6", "Site7",
                                      "Site8", "Site9", "Site10", "Site11", "Site12", "Site13", "Site14"]]
+    all_species_df.to_csv("all.csv")
     ax = sns.heatmap(all_species_df, cmap="Blues",
                      yticklabels=False, cbar=False,
                      vmin=0, vmax=1, center=0.5)
