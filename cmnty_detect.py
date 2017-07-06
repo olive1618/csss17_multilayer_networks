@@ -247,7 +247,7 @@ def two_site_community_detection():
             xy_labels[site_num-1] = site_name
 
         ax = sns.heatmap(hm_npa, cmap="viridis", cbar=True,
-                         vmin=0.3, vmax=1.0,
+                         vmin=0.3, vmax=1.0, annot=True,
                          linewidths=0.1, center=0.67,
                          xticklabels=xy_labels,
                          yticklabels=xy_labels,
@@ -292,7 +292,7 @@ def two_site_community_detection():
         plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
         sns.plt.show()
 
-    # plot_pairwise_auc()
+    plot_pairwise_auc()
     # plot_auc_histogram()
     # plot_multiple_measures()
 
